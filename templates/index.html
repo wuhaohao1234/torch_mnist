@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>基于CNN的手写数字识别平台</title>
+	<link rel="stylesheet" href="{{url_for('static', filename='style.css')}}"> <!-- 加载CSS/js/image 静态文件 -->
+</head>
+
+<body>
+
+	<div class="top">
+		<h1>基于CNN的手写数字识别平台</h1>
+		<div class="top-section">
+
+			<div class="left-top">
+				<div class="left-top-left">
+					<div>
+						<canvas id="canvas" style="position: relative;"></canvas>
+					</div>
+					<div>
+						<canvas width="80" height="80"></canvas>
+					</div>
+				</div>
+
+				<div class="left-top-right">
+					<form id="myradio" method="post">
+						<input type="radio" name="radio" value="AlexNet" checked style="margin-bottom: 20px">
+						<label>AleNet模型</label><br>
+						<input type="radio" name="radio" value="AlexNet+CBAM" style="margin-bottom: 20px">
+						<label>AlexNet+CBAM横型</label><br>
+						<input type="radio" name="radio" value="new_AlexNet+CBMA" style="margin-bottom: 30px">
+						<label>New_AlexNet+CBMA模型</label><br />
+						<button class="myButton" type="submit" value="预测"
+							style="width: 80px; margin-bottom: 20px">预测</button>
+
+					</form>
+					<div>
+						<!-- <button class="myButton" type="submit" value="预测">预测</button> -->
+					</div>
+					<div>
+						<button type="submit" id="clearButton" value="清除" style="width: 80px; ">清除</button>
+					</div>
+				</div>
+
+			</div>
+			<div class="right">
+				<div class="right-top">
+					<div class="right-top-select">
+						<form class="right-top-select-form" id="myform" method="post">
+							<label>请选择模型：</label>
+							<select name="dropdown1" id="dropdown1" style="margin-left: 10px">
+								{% for option in options1 %}
+								<option value="{{ option }}" {% if option==selected1 %}selected{% endif %}>{{ option }}  <!--使用selectedd属性实现选中状态-->
+								</option>
+								{% endfor %}
+							</select>
+							<label style="margin-left: 10px">请选择指标：</label>
+							<select name="dropdown2" id="dropdown2" style="margin-left: 10px">
+								{% for option in options2 %}
+								<option value="{{ option }}" {% if option==selected2 %}selected{% endif %}>{{ option }}
+								</option>
+								{% endfor %}
+							</select>
+							<input type="submit" style="margin-left: 10px"></input>
+						</form>
+					</div>
+
+
+					{% if show_results == True %}
+					<img width="100%" height="280" src="{{ url_for('static', filename=image_url) }}" >
+					{% endif %}
+					{% if show_results == False %}
+					<img width="100%" height="280" src="{{ url_for('static', filename='acc_lenet.png') }}">
+					{% endif %}
+				</div>
+				<div style="text-align: left; margin-top: 60px;">每个数字的tensor得分</div>
+			</div>
+		</div>
+
+		<div class="bottom-section">
+			<div style="width: 50%">
+				<table id="tfhover" class="tftable" border="1" style="width: 80% ;margin-left: 5%; height: 130px;">
+					<tr>
+						<th>模型</th>
+						<th>训练集准确率</th>
+						<th>测试集准确率</th>
+					</tr>
+					<tr>
+						<td>AlexNet</td>
+						<td id="data0" ></td>
+						<td id="data1" ></td>
+					</tr>
+					<tr>
+						<td>AlexNet+注意力机制</td>
+						<td id="data2"></td>
+						<td id="data3"></td>
+					</tr>
+					<tr>
+						<td>AlexNet+注意力机制(改进)</td>
+						<td id="data4"></td>
+						<td id="data5"></td>
+					</tr>
+				</table>
+			</div>
+
+			<div style="width: 50%">
+				<table id="tfhover" class="tftable" border="1" style="width: 80%;
+	margin-left: 5%; height: 65px;">
+					<tr>
+						<th>数字</th>
+						<th>0</th>
+						<th>1</th>
+						<th>2</th>
+						<th>3</th>
+						<th>4</th>
+						<th>5</th>
+						<th>6</th>
+						<th>7</th>
+						<th>8</th>
+						<th>9</th>
+					</tr>
+					<tr>
+						<td>得分</td>
+						<td id="result0"></td>
+						<td id="result1"></td>
+						<td id="result2"></td>
+						<td id="result3"></td>
+						<td id="result4"></td>
+						<td id="result5"></td>
+						<td id="result6"></td>
+						<td id="result7"></td>
+						<td id="result8"></td>
+						<td id="result9"></td>
+					</tr>
+				</table>
+				<div class="centered">
+					<h2 id="result"></h2>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+	<script src="{{url_for('static',filename='jquery-3.2.0.min.js')}}"></script>
+	<script src="{{url_for('static',filename='index.js')}}"></script>
+
+
+	<!--{{ request.script_root| tojson | safe }} 获取到应用的根目录然后转为json格式，然后将内容作为html进行解析，关闭掉转义 -->
+
+	<script type="text/javascript">
+		var $SCRIPT_ROOT = {{ request.script_root| tojson | safe}};
+		$.ajax({
+			type: "POST",
+			url: $SCRIPT_ROOT + "/train/",
+			success: function (data) {
+				$('#data0').text(data["alexnet_cbam_train_acc"].toFixed(2) + '%');
+				$('#data1').text(data["alexnet_cbam_train_loss"].toFixed(2) + '%');
+				$('#data2').text(data["alexnet_train_acc"].toFixed(2) + '%');
+				$('#data3').text(data["alexnet_train_loss"].toFixed(2) + '%');
+				$('#data4').text(data["new_alexnet_cbam_train_acc"].toFixed(2) + '%');
+				$('#data5').text(data["new_alexnet_cbam_train_loss"].toFixed(2) + '%');
+			}
+		});
+		$(".myButton").click(function (event) {
+			event.preventDefault();
+			$('#result').text('  Predicting...');
+			var $SCRIPT_ROOT = {{ request.script_root| tojson | safe
+		}};
+		var canvasObj = document.getElementById("canvas");
+		var img = canvasObj.toDataURL('image/png');
+		$.ajax({
+			type: "POST",
+			url: $SCRIPT_ROOT + "/predict/",
+			data: img,
+			success: function (data) {
+				$('#result').text('预测结果: ' + data[0]);
+				// console.log(data);
+				$('#result0').text(data[1].toFixed(2));
+				$('#result1').text(data[2].toFixed(2));
+				$('#result2').text(data[3].toFixed(2));
+				$('#result3').text(data[4].toFixed(2));
+				$('#result4').text(data[5].toFixed(2));
+				$('#result5').text(data[6].toFixed(2));
+				$('#result6').text(data[7].toFixed(2));
+				$('#result7').text(data[8].toFixed(2));
+				$('#result8').text(data[9].toFixed(2));
+				$('#result9').text(data[10].toFixed(2));
+			}
+		});
+	   		}
+	   	);
+	</script>
+
+	<script type="text/javascript">
+		$(document).ready(function () {
+			$("input[type='radio']").click(function () {
+				var selectedValue = $("input[type='radio']:checked").val();
+				$.ajax({
+					type: "POST",
+					url: "/",
+					data: { "radio": selectedValue },
+					success: function (data) {
+					}
+				});var selectedValue = $("input[type='radio']:checked").val();
+				$.ajax({
+					type: "POST",
+					url: "/",
+					data: { "radio": selectedValue },
+					success: function (data) {
+					}
+				});
+			});
+		});
+	</script>
+
+	<script type="text/javascript">
+		$(document).ready(function () {
+			$("input[type='radio']").click(function () {
+				var selectedValue = $("input[type='radio']:checked").val();
+				$.ajax({
+					type: "POST",
+					url: "/",
+					data: { "radio": selectedValue },
+					success: function (data) {
+					}
+				});
+			});
+		});
+	</script>
+
+
+	<script type="text/javascript">
+		window.onload = function () {
+			var tfrow = document.getElementById('tfhover').rows.length;
+			var tbRow = [];
+			for (var i = 1; i < tfrow; i++) {
+				tbRow[i] = document.getElementById('tfhover').rows[i];
+				tbRow[i].onmouseover = function () {
+					this.style.backgroundColor = '#ffffff';
+				};
+				tbRow[i].onmouseout = function () {
+					this.style.backgroundColor = '#cdcdcd';
+				};
+			}
+		};
+
+	</script>
+
+	<style type="text/css">
+		table.tftable {
+			font-size: 12px;
+			color: #333333;
+			width: 40%;
+			border-width: 1px;
+			border-color: #a9a9a9;
+			border-collapse: collapse;
+		}
+
+		table.tftable th {
+			font-size: 12px;
+			background-color: #b8b8b8;
+			border-width: 1px;
+			padding: 8px;
+			border-style: solid;
+			border-color: #a9a9a9;
+			text-align: center;
+		}
+
+		table.tftable tr {
+			background-color: #cdcdcd;
+		}
+
+		table.tftable td {
+			font-size: 12px;
+			border-width: 1px;
+			padding: 8px;
+			border-style: solid;
+			border-color: #a9a9a9;
+			text-align: center;
+		}
+	</style>
+
+</body>
+
+</html>
